@@ -1,4 +1,4 @@
-# 🧬 ML-core Engine (v0.2 Alpha — 2D)
+# 🧬 ML-core Engine (v0.3.5 Alpha — 2D)
 **Founder & Lead Architect (Основатель и Главный Архитектор):** NextGenMax 👑
 
 ---
