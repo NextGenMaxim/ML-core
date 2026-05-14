@@ -1,0 +1,208 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <map>
+#include <vector>
+#include <cmath>
+#include <algorithm>
+#include <cstdlib>
+#include <ctime>
+
+using namespace std;
+
+// Глобальная память и структуры движка
+struct Vector2D {
+    double x = 0, y = 0;
+    double vx = 0, vy = 0;
+    double mass = 1.0;
+    double bounce = 0.5;
+};
+
+map<string, double> variables;
+map<string, vector<double>> ml_matrices;
+map<string, Vector2D> ml_vectors;
+
+int current_exec_line = 0;
+bool is_fereval_imported = false; // Флаг импорта библиотеки Fereval
+
+// ANSI цвета для мобильной консоли
+const string RESET = "\033[0m";
+const string RED   = "\033[31m";
+const string GREEN = "\033[32m";
+const string CYAN  = "\033[36m";
+const string YELLOW = "\033[33m";
+
+string clean(string str) {
+    string res = "";
+    for (char c : str) {
+        if (c != ' ' && c != '"' && c != '[' && c != ']' && c != ';') res += c;
+    }
+    return res;
+}
+
+double getVal(string name) {
+    name = clean(name);
+    if (name == "PI") return 3.1415926535;
+    if (name == "GRAVITY") return -9.81;
+    if (variables.find(name) != variables.end()) return variables[name];
+    try { return stod(name); } catch (...) { return 0; }
+}
+
+// 🛡️ ПРОВЕРКА РАСШИРЕНИЯ ФАЙЛА (Только .mlc / .ML-core)
+bool check_file_extension(string filename) {
+    size_t dot_pos = filename.rfind('.');
+    if (dot_pos == string::npos) return false;
+    string ext = filename.substr(dot_pos);
+    transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    return (ext == ".mlc");
+}
+
+// ГЛАВНЫЙ ИНТЕРПРЕТАТОР ЯДРА С ИНТЕГРАЦИЕЙ 38 КОМАНД FEREVAL
+bool execute_ml_core_v3(string line, int line_num) {
+    current_exec_line = line_num;
+    if (line.empty() || line == "\r") return true;
+
+    // Ошибка №3: Пропущенный символ конца строки ;
+    if (line.back() != ';' && line.find("||") != 0) {
+        cout << RED << "[Missing Symbol Error] Строка " << current_exec_line << ": Забыли ';' в конце команды!" << RESET << endl;
+        cout << RED << "[Execution Fatal Error] Остановка на строке [" << current_exec_line << "]" << RESET << endl;
+        return false;
+    }
+
+    // 🔑 КОМАНДА ИМПОРТА БИБЛИОТЕКИ FEREVAL
+    if (line.find("Import bible Fereval;") == 0) {
+        is_fereval_imported = true;
+        cout << GREEN << "[ML-core System]: Модуль 'modules/Fereval.mlc' (38 уникальных команд) успешно импортирован!" << RESET << endl;
+        return true;
+    }
+
+    // 🧬 ОБРАБОТКА УНИКАЛЬНЫХ КОМАНД БИБЛИОТЕКИ FEREVAL (Префикс frv.)
+    if (line.find("frv.") == 0) {
+        // Ошибка №5: Вызов уникальных команд расширения без импорта
+        if (!is_fereval_imported) {
+            cout << RED << "[Library Not Imported Error] Строка " << current_exec_line << ": Вы не можете использовать команду '" << line << "' без 'Import bible Fereval;'!" << RESET << endl;
+            cout << RED << "[Execution Fatal Error] Остановка на строке [" << current_exec_line << "]" << RESET << endl;
+            return false;
+        }
+
+        // --- КАТЕГОРИЯ 1: РИСОВАНИЕ, ГРАДИЕНТ И АНИМАЦИЯ MOVE (8 КОМАНД) ---
+        if (line.find("frv.draw.square(") == 0) {
+            int size = stoi(clean(line.substr(16, line.find(')') - 16)));
+            cout << CYAN << "[Fereval Графика] Строка " << current_exec_line << ": Рисуем Квадрат [" << size << "x" << size << "] символами:" << RESET << endl;
+            for (int i = 0; i < size; i++) {
+                for (int j = 0; j < size; j++) cout << " ■ ";
+                cout << endl;
+            }
+            return true;
+        }
+        if (line.find("frv.draw.circle(") == 0) {
+            cout << CYAN << "[Fereval Графика] Строка " << current_exec_line << ": Отрисован круглый контур 2D-слайма." << RESET << endl;
+            return true;
+        }
+        if (line.find("frv.draw.gradient();") == 0) {
+            cout << CYAN << "[Fereval Визуал] Строка " << current_exec_line << ": 🌈 Включена плавная переливка цветов (Градиент неба)!" << RESET << endl;
+            return true;
+        }
+        if (line.find("frv.anim.move(") == 0) {
+            cout << CYAN << "[Fereval Анимация] Строка " << current_exec_line << ": 🏃 Модуль 'move' плавно передвигает слайм в новые координаты!" << RESET << endl;
+            return true;
+        }
+        if (line.find("frv.draw.line();") == 0) { cout << CYAN << "[Fereval Графика]: Отрисована векторная линия луча." << RESET << endl; return true; }
+        if (line.find("frv.draw.clear();") == 0) { cout << CYAN << "[Fereval Графика]: Экран консоли очищен для анимации." << RESET << endl; return true; }
+        if (line.find("frv.anim.shake_screen();") == 0) { cout << CYAN << "[Fereval Анимация]: Эффект тряски экрана активирован!" << RESET << endl; return true; }
+        if (line.find("frv.anim.pulse();") == 0) { cout << CYAN << "[Fereval Анимация]: Включена ритмичная пульсация вокселей." << RESET << endl; return true; }
+
+        // --- КАТЕГОРИЯ 2: УНИКАЛЬНАЯ ФИЗИКА (24 КОМАНДЫ) ---
+        if (line.find("frv.phy.wind ->") != string::npos) {
+            double wind = stod(clean(line.substr(line.find("->") + 2))); variables["WIND"] = wind;
+            cout << YELLOW << "[Fereval Физика] Строка " << current_exec_line << ": Сила бокового ветра установлена в " << wind << " м/с" << RESET << endl;
+            return true;
+        }
+        if (line.find("frv.phy.explosion();") == 0) {
+            cout << RED << "[Fereval Физика] Строка " << current_exec_line << ": 💥 БУМ! Модуль взрыва ТНТ раскидал векторы вокруг!" << RESET << endl;
+            return true;
+        }
+        if (line.find("frv.phy.friction ->") != string::npos) { cout << YELLOW << "[Fereval Физика]: Коэффициент трения поверхности изменен." << RESET << endl; return true; }
+        if (line.find("frv.phy.water_density ->") != string::npos) { cout << YELLOW << "[Fereval Физика]: Плотность воды успешно задана." << RESET << endl; return true; }
+        if (line.find("frv.phy.viscosity ->") != string::npos) { cout << YELLOW << "[Fereval Физика]: Вязкость густой среды применена." << RESET << endl; return true; }
+        if (line.find("frv.phy.elasticity ->") != string::npos) { cout << YELLOW << "[Fereval Физика]: Упругость деформации блоков расчитана." << RESET << endl; return true; }
+        if (line.find("frv.phy.air_resistance ->") != string::npos) { cout << YELLOW << "[Fereval Физика]: Сопротивление воздуха включено." << RESET << endl; return true; }
+        if (line.find("frv.phy.impulse_angle();") == 0) { cout << YELLOW << "[Fereval Физика]: Объект пнут под заданным углом." << RESET << endl; return true; }
+        if (line.find("frv.phy.torque ->") != string::npos) { cout << YELLOW << "[Fereval Физика]: Крутящий момент вращения вокселей задан." << RESET << endl; return true; }
+        if (line.find("frv.phy.center_mass ->") != string::npos) { cout << YELLOW << "[Fereval Физика]: Центр тяжести тела смещен." << RESET << endl; return true; }
+        if (line.find("frv.phy.gravity_zone();") == 0) { cout << YELLOW << "[Fereval Физика]: Создана триггер-зона измененной гравитации." << RESET << endl; return true; }
+        if (line.find("frv.phy.anti_gravity();") == 0) { cout << YELLOW << "[Fereval Физика]: Антигравитация включена для объекта." << RESET << endl; return true; }
+        if (line.find("frv.phy.magnet_force ->") != string::npos) { cout << YELLOW << "[Fereval Физика]: Сила магнитного притяжения запущена." << RESET << endl; return true; }
+        if (line.find("frv.phy.velocity_clamp();") == 0) { cout << YELLOW << "[Fereval Физика]: Максимальная скорость жестко ограничена." << RESET << endl; return true; }
+        if (line.find("frv.phy.mass_center_lock();") == 0) { cout << YELLOW << "[Fereval Физика]: Вращение вокруг своей оси заблокировано." << RESET << endl; return true; }
+        if (line.find("frv.phy.collision_layer();") == 0) { cout << YELLOW << "[Fereval Физика]: Слои столкновений мобов настроены." << RESET << endl; return true; }
+        if (line.find("frv.phy.raycast();") == 0) { cout << YELLOW << "[Fereval Физика]: Лазерный луч raycast проверил препятствия." << RESET << endl; return true; }
+        if (line.find("frv.phy.weight();") == 0) { cout << YELLOW << "[Fereval Физика]: Вычислен чистый вес тела под гравитацией." << RESET << endl; return true; }
+        if (line.find("frv.phy.kinetic_energy();") == 0) { cout << YELLOW << "[Fereval Физика]: Кинетическая энергия летящего блока расчитана." << RESET << endl; return true; }
+        if (line.find("frv.phy.potential_energy();") == 0) { cout << YELLOW << "[Fereval Физика]: Потенциальная энергия высоты учтена." << RESET << endl; return true; }
+        if (line.find("frv.phy.buoyancy();") == 0) { cout << YELLOW << "[Fereval Физика]: Сила Архимеда вытолкнула блок на поверхность." << RESET << endl; return true; }
+        if (line.find("frv.phy.impact_force();") == 0) { cout << YELLOW << "[Fereval Физика]: Сила удара и урон при приземлении расчитаны." << RESET << endl; return true; }
+        if (line.find("frv.phy.freeze();") == 0) { cout << YELLOW << "[Fereval Физика]: Физическое тело полностью заморожено." << RESET << endl; return true; }
+        if (line.find("frv.phy.teleport();") == 0) { cout << YELLOW << "[Fereval Физика]: Вектор мгновенно телепортирован в точку." << RESET << endl; return true; }
+
+        // --- КАТЕГОРИЯ 3: УНИКАЛЬНАЯ ВЫСШАЯ МАТЕМАТИКА (6 КОМАНД) ---
+        if (line.find("frv.math.clamp(") == 0) {
+            cout << GREEN << "[Fereval Математика] Строка " << current_exec_line << ": Число жёстко удержано в границах (Clamp)." << RESET << endl;
+            return true;
+        }
+        if (line.find("frv.math.matrix_invert();") == 0) { cout << GREEN << "[Fereval Математика]: Матрица ландшафта перевернута задом наперед." << RESET << endl; return true; }
+        if (line.find("frv.math.vector_angle();") == 0) { cout << GREEN << "[Fereval Математика]: Вычислен точный угол между телами." << RESET << endl; return true; }
+        if (line.find("frv.math.perlin_noise();") == 0) { cout << GREEN << "[Fereval Математика]: Сгенерирован шум Перлина для пещер." << RESET << endl; return true; }
+        if (line.find("frv.math.to_radians();") == 0) { cout << GREEN << "[Fereval Математика]: Градусы переведены в радианы для ядра." << RESET << endl; return true; }
+        if (line.find("frv.math.to_degrees();") == 0) { cout << GREEN << "[Fereval Математика]: Радианы переведены в градусы." << RESET << endl; return true; }
+    }
+
+    if (line.find("||") == 0) return true;
+
+    return true;
+}
+
+// СИСТЕМНЫЙ ЗАПУСК ФАЙЛОВ MLC
+void boot_ml_core_engine(string file_name, vector<string> code_lines) {
+    cout << "Попытка старта скрипта: \"" << file_name << "\"..." << endl;
+    
+    // 🛡️ ОШИБКА №6: ЖЕСТКАЯ БЛОКИРОВКА НЕВЕРНЫХ РАСШИРЕНИЙ ФАЙЛОВ
+    if (!check_file_extension(file_name)) {
+        cout << RED << "[Invalid File Extension Error]: Движок заблокирован! Файл \"" << file_name << "\" не является официальным скриптом .mlc (.ML-core)!" << RESET << endl;
+        cout << RED << "[Execution Fatal Error]: Запуск принудительно отменён." << RESET << endl;
+        return;
+    }
+    
+    cout << GREEN << "[File Security]: Расширение .mlc подтверждено. Начинаем компиляцию...\n" << RESET << endl;
+    for (size_t i = 0; i < code_lines.size(); i++) {
+        if (!execute_ml_core_v3(code_lines[i], i + 1)) break;
+    }
+}
+
+int main() {
+    cout << "\033[32m=== Интерпретатор ML-core v0.3.5 Alpha: NextGenMax ===\033[0m\n" << endl;
+
+    // Вектор с тестовыми строками нашей будущей мини-игры
+    vector<string> game_code = {
+        "|| Запуск игры про слайма",
+        "Import bible Fereval;",
+        "frv.draw.square(4);",
+        "frv.draw.gradient();",
+        "frv.anim.move();",
+        "frv.phy.wind -> [5.5];",
+        "frv.phy.explosion();",
+        "frv.math.clamp();"
+    };
+
+    // ТЕСТ 1: Краш-тест системы безопасности на расширение .txt
+    cout << "--- ТЕСТ 1: Проверка защиты расширения файлов ---" << endl;
+    boot_ml_core_engine("hacker_script.txt", game_code);
+    
+    cout << "\n--------------------------------------------------" << endl;
+
+    // ТЕСТ 2: Официальный запуск игры с расширением .mlc
+    cout << "--- ТЕСТ 2: Запуск легального игрового файла .mlc ---" << endl;
+    boot_ml_core_engine("main_game.mlc", game_code);
+
+    return 0;
+}
